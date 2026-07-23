@@ -1,0 +1,10 @@
+streamlit>=1.32
+sentence-transformers>=2.6
+spacy>=3.7
+scikit-learn>=1.4
+scipy>=1.11
+pandas>=2.0
+numpy>=1.24
+pdfplumber>=0.11
+mammoth>=1.7
+ollama>=0.1.9
