@@ -5,10 +5,27 @@
 ![Vercel](https://img.shields.io/badge/deploy-Vercel-000000)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 
+### 🔗 [**Try it live → resume-refiner-ai-lemon.vercel.app**](https://resume-refiner-ai-lemon.vercel.app)
+
 Upload a resume and paste a job description. ResumeRefiner AI shows **which requirements the
 resume covers, which skills are missing, and how to make the bullets stronger**, then lets you
-download the result as a report. It deploys to **Vercel** as a static page plus small Python
+download the result as a report. It runs on **Vercel** as a static page plus small Python
 serverless functions; a Streamlit version is included for local use.
+
+## Using the live app
+
+1. Open the [live app](https://resume-refiner-ai-lemon.vercel.app) and click **Try with sample data**
+   for a demo, or upload your own resume (PDF, DOCX or TXT) and paste a job description.
+2. Optionally tick **Add rewrite suggestions from an LLM** for AI-written bullet rewrites.
+3. Click **Analyze**. Results are split into four tabs: *Match & skills*, *Resume quality*,
+   *LLM suggestions* and *Scorer details*. **Download report** saves everything as Markdown.
+
+The first analysis takes a little longer while the browser downloads the ~23 MB embedding
+model; after that it is cached. Works best in a recent Chrome, Edge, Firefox or Safari on desktop.
+
+**Privacy:** nothing is stored. Resume text goes to the app's serverless functions for the
+rule-based checks, and to [Groq](https://groq.com) only if you tick the LLM option. The semantic
+matching runs entirely in your browser. The sample resume is fictional.
 
 ## Features
 
@@ -22,9 +39,9 @@ serverless functions; a Streamlit version is included for local use.
 | **Downloadable report** | One-click Markdown report of all of the above. |
 | **Evaluation harness** (Streamlit app) | Score a labelled CSV of (resume, JD, human rating) pairs and compare three scorers with Spearman / Pearson / ROC-AUC. |
 
-## Deploy to Vercel
+## Deploy your own copy on Vercel
 
-1. Push this repo to GitHub and import it at [vercel.com/new](https://vercel.com/new).
+1. Fork this repo and import it at [vercel.com/new](https://vercel.com/new).
    No framework preset or build command is needed: `vercel.json` serves `public/` and turns
    each file in `api/` into a Python function.
 2. Get a free API key at [console.groq.com/keys](https://console.groq.com/keys) and add it
@@ -62,7 +79,7 @@ python dev_server.py                             # http://localhost:8000
 **Streamlit app** (full stack, including the evaluation harness and spaCy grammar check):
 
 ```bash
-python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scriptsctivate
+python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements-local.txt
 python -m spacy download en_core_web_sm
 streamlit run app.py
