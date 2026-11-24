@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ResumeRefiner AI</title>
+  <meta name="description" content="Match a resume against a job description: semantic coverage, skill gaps, resume quality checks and LLM rewrite suggestions.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📄</text></svg>">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js" defer></script>
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+<main class="wrap">
+  <header>
+    <h1>📄 ResumeRefiner AI</h1>
+    <p class="muted">Match a resume against a job description: semantic coverage, skill gaps,
+      resume quality checks and LLM rewrite suggestions.</p>
+  </header>
+
+  <div class="toolbar">
+    <button type="button" id="btn-sample">Try with sample data</button>
+    <button type="button" id="btn-clear">Clear</button>
+  </div>
+
+  <section class="inputs">
+    <div class="panel">
+      <h2>1. Resume</h2>
+      <label class="file">
+        <input type="file" id="file" accept=".pdf,.docx,.txt">
+        <span>Upload PDF, DOCX or TXT</span>
+      </label>
+      <p id="file-status" class="note" hidden></p>
+      <label for="resume" class="label">…or paste / edit the resume text</label>
+      <textarea id="resume" rows="16" spellcheck="false"></textarea>
+      <p id="resume-meta" class="caption"></p>
+    </div>
+    <div class="panel">
+      <h2>2. Job description</h2>
+      <label for="jd" class="label">Paste the full job description</label>
+      <textarea id="jd" rows="19" spellcheck="false"></textarea>
+    </div>
+  </section>
+
+  <label class="check">
+    <input type="checkbox" id="use-llm">
+    <span id="llm-label">Add rewrite suggestions from an LLM (Groq)</span>
+  </label>
+  <p id="llm-note" class="caption"></p>
+
+  <button type="button" id="btn-analyze" class="primary" disabled>Analyze</button>
+  <p id="status" class="status" role="status" aria-live="polite"></p>
+
+  <section id="results" hidden>
+    <div class="metrics">
+      <div class="metric" title="Mean, over JD requirements, of the best-matching resume chunk (cosine similarity). Use to compare candidates, not as a pass mark.">
+        <span class="metric-label">JD coverage</span><span class="metric-value" id="m-coverage">…</span>
+      </div>
+      <div class="metric"><span class="metric-label">Skills matched</span><span class="metric-value" id="m-skills"></span></div>
+      <div class="metric"><span class="metric-label">Keyword overlap (TF-IDF)</span><span class="metric-value" id="m-tfidf"></span></div>
+      <div class="metric"><span class="metric-label">Resume quality</span><span class="metric-value" id="m-quality"></span></div>
+    </div>
+
+    <button type="button" id="btn-report">Download report (Markdown)</button>
+
+    <nav class="tabs" role="tablist">
+      <button role="tab" data-tab="match" aria-selected="true">Match &amp; skills</button>
+      <button role="tab" data-tab="quality">Resume quality</button>
+      <button role="tab" data-tab="llm">LLM suggestions</button>
+      <button role="tab" data-tab="debug">Scorer details</button>
+    </nav>
+
+    <div class="tab-panel" data-panel="match">
+      <div class="cols">
+        <div>
+          <h3>Skills</h3>
+          <div id="skills"></div>
+        </div>
+        <div>
+          <h3>Weakest-covered requirements</h3>
+          <p class="caption">Where the resume says least about what the JD asks for.</p>
+          <div id="coverage-table"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-panel" data-panel="quality" hidden>
+      <div class="metrics small">
+        <div class="metric"><span class="metric-label">Words</span><span class="metric-value" id="q-words"></span></div>
+        <div class="metric"><span class="metric-label">Bullets</span><span class="metric-value" id="q-bullets"></span></div>
+        <div class="metric"><span class="metric-label">Start with action verb</span><span class="metric-value" id="q-verbs"></span></div>
+        <div class="metric"><span class="metric-label">Contain a number</span><span class="metric-value" id="q-nums"></span></div>
+      </div>
+      <p id="q-sections"></p>
+      <p id="q-contact"></p>
+      <h3>Suggestions</h3>
+      <div id="findings"></div>
+    </div>
+
+    <div class="tab-panel" data-panel="llm" hidden>
+      <div id="llm-out"></div>
+    </div>
+
+    <div class="tab-panel" data-panel="debug" hidden>
+      <div id="debug"></div>
+    </div>
+  </section>
+
+  <details class="about">
+    <summary>How it works</summary>
+    <ol>
+      <li><strong>Extract</strong> text from PDF (pdfplumber) or DOCX (mammoth) in a Python serverless function.</li>
+      <li><strong>Match skills</strong> with boundary-aware regex and an alias table, so <code>JavaScript</code> doesn't count as <code>Java</code>.</li>
+      <li><strong>Check quality</strong> with transparent rules: sections, contact info, action verbs, quantified bullets, weak phrases.</li>
+      <li><strong>Chunk and embed</strong> both documents <em>in your browser</em> with <code>all-MiniLM-L6-v2</code> (transformers.js). The JD coverage score is the mean, over JD requirements, of each requirement's best-matching resume chunk.</li>
+      <li><strong>Optionally</strong> ask an LLM on Groq for concrete bullet rewrites.</li>
+    </ol>
+    <p><strong>Privacy:</strong> resume text is sent to this site's serverless functions for the rule-based checks and is not stored.
+      It is sent to Groq only when you tick the LLM option. Embeddings are computed locally in your browser.</p>
+    <p><strong>Limitations:</strong> the skill list is curated, so unlisted skills are invisible. Quality checks are heuristics.
+      Cosine scores aren't calibrated probabilities, so use them to rank, not to threshold.</p>
+  </details>
+</main>
+</body>
+</html>

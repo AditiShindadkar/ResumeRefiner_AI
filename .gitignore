@@ -1,0 +1,21 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+env/
+.env
+.streamlit/secrets.toml
+.ipynb_checkpoints/
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+# Keep real resumes out of the repo
+*.pdf
+*.docx
+.vercel/
+.env*.local
+
+.vercel
+.env*
