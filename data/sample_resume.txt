@@ -1,0 +1,27 @@
+Jordan Patel
+Data Analyst | jordan.patel@example.com | +1 555 010 2030 | linkedin.com/in/jordan-patel-example
+
+SUMMARY
+Data analyst with two years of experience turning messy operational data into dashboards and forecasts that business teams actually use.
+
+EXPERIENCE
+Data Analyst, Northwind Retail (2023 - Present)
+- Built a Power BI sales dashboard used by 40+ store managers, replacing 12 weekly Excel reports
+- Automated the daily inventory ETL in Python and SQL, cutting refresh time from 3 hours to 20 minutes
+- Responsible for ad-hoc analysis requests from the marketing team
+- Designed an A/B testing framework for email campaigns that lifted click-through rate by 8%
+
+Analytics Intern, Contoso Health (2022 - 2023)
+- Worked on cleaning patient appointment data using Pandas
+- Developed a time series forecasting model for clinic demand with 91% accuracy
+- Helped the team with various reporting tasks
+
+PROJECTS
+Customer Churn Prediction
+- Trained an XGBoost model on 50,000 subscriber records and explained drivers with SHAP
+
+EDUCATION
+B.Sc. Statistics, Example University, 2022
+
+SKILLS
+Python, SQL, Pandas, NumPy, Power BI, DAX, Excel, Tableau, Scikit-learn, XGBoost, Git, Statistics

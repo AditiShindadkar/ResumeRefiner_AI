@@ -1,0 +1,19 @@
+Senior Data Analyst - Example Corp
+
+About the role
+You will own the analytics behind our subscription business, partnering with product, marketing and finance stakeholders to turn data into decisions.
+
+Responsibilities
+- Build and maintain self-serve dashboards in Power BI or Tableau
+- Write production-quality SQL against Snowflake and model data with dbt
+- Design and analyse A/B tests and communicate results to non-technical stakeholders
+- Develop forecasting and churn models in Python
+- Automate recurring reporting with Airflow
+
+Requirements
+- 3+ years in data analysis or data science
+- Strong SQL and Python (Pandas, Scikit-learn)
+- Experience with a cloud warehouse such as Snowflake or BigQuery
+- Solid statistics and hypothesis testing
+- Clear written and verbal communication
+- Nice to have: AWS, Docker, experience with LLM-based tooling
