@@ -11,16 +11,16 @@ import streamlit as st
 
 from resume_refiner import __version__
 from resume_refiner.config import (MAX_CHUNK_TOKENS, MODEL_HARD_LIMIT, NLP_MODEL,
-                                   OLLAMA_MODEL, SENTENCE_MODEL)
+                                   SENTENCE_MODEL)
 from resume_refiner.evaluation import REQUIRED_COLUMNS, evaluate, template_csv
 from resume_refiner.extract import ExtractionError, extract_text
-from resume_refiner.llm import LLMUnavailable, analyze_with_ollama
+from resume_refiner.llm import LLMUnavailable, analyze_with_llm, llm_label
 from resume_refiner.quality import analyze_quality, check_grammar
 from resume_refiner.report import build_markdown_report
 from resume_refiner.scoring import EmbeddingScorer, score_tfidf
 from resume_refiner.skills import compare_skills
 
-DATA_DIR = Path(__file__).parent / "data"
+DATA_DIR = Path(__file__).parent / "public" / "samples"
 
 st.set_page_config(page_title="ResumeRefiner AI", page_icon="📄", layout="wide")
 
@@ -85,7 +85,7 @@ def run_analysis(resume_text: str, jd_text: str, use_llm: bool) -> dict:
     }
     if use_llm:
         try:
-            result["llm"] = analyze_with_ollama(resume_text, jd_text, missing)
+            result["llm"] = analyze_with_llm(resume_text, jd_text, missing)
         except LLMUnavailable as e:
             result["llm_error"] = str(e)
     return result
@@ -102,7 +102,7 @@ def fmt_pct(x):
 st.title("📄 ResumeRefiner AI")
 st.caption(
     "Match a resume against a job description: semantic coverage, skill gaps, "
-    "resume quality checks and optional local-LLM rewrite suggestions."
+    "resume quality checks and optional LLM rewrite suggestions."
 )
 
 tab_analyze, tab_eval, tab_about = st.tabs(["Analyze", "Evaluate", "How it works"])
@@ -143,8 +143,9 @@ with tab_analyze:
         st.text_area("Paste the full job description", key="jd_text", height=390)
 
     use_llm = st.checkbox(
-        f"Add rewrite suggestions from a local LLM (Ollama · `{OLLAMA_MODEL}`)",
-        help="Requires Ollama running locally. Nothing leaves your machine.",
+        f"Add rewrite suggestions from an LLM ({llm_label()})",
+        help="Uses Groq when GROQ_API_KEY is set (sends the text to Groq); "
+             "otherwise a local Ollama server, where nothing leaves your machine.",
     )
     ready = bool(st.session_state.resume_text.strip() and st.session_state.jd_text.strip())
     if st.button("Analyze", type="primary", disabled=not ready, width="stretch"):
@@ -306,7 +307,7 @@ with tab_about:
 4. **Match skills** with boundary-aware regex and an alias table.
 5. **Check quality** with transparent rules: sections, contact info, action verbs,
    quantified bullets, weak phrases.
-6. **Optionally** ask a local LLM (Ollama) for concrete bullet rewrites.
+6. **Optionally** ask an LLM (Groq, or local Ollama) for concrete bullet rewrites.
 
 ### Why chunking
 `{SENTENCE_MODEL}` truncates at {MODEL_HARD_LIMIT} word pieces; a two-page resume is

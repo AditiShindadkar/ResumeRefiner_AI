@@ -14,3 +14,8 @@ Thumbs.db
 # Keep real resumes out of the repo
 *.pdf
 *.docx
+.vercel/
+.env*.local
+
+.vercel
+.env*

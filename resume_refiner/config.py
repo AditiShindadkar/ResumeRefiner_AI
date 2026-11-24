@@ -1,8 +1,10 @@
-"""Central configuration. Override the Ollama model with the OLLAMA_MODEL env var."""
+"""Central configuration. LLM models can be overridden with the GROQ_MODEL /
+OLLAMA_MODEL environment variables."""
 
 import os
 
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "mistral")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 NLP_MODEL = "en_core_web_sm"
 SENTENCE_MODEL = "all-MiniLM-L6-v2"
 

@@ -4,24 +4,11 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 import pandas as pd
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
 
 from .chunking import chunk_text, split_requirements
 from .config import (MAX_CHUNK_TOKENS, MIN_REQUIREMENT_WORDS,
                      RESUME_CHUNK_TOKENS, SENTENCE_MODEL)
-
-
-def score_tfidf(resume_text: str, jd_text: str) -> Optional[float]:
-    """Lexical baseline: cosine similarity of TF-IDF (1-2 gram) vectors."""
-    if not resume_text or not jd_text:
-        return None
-    try:
-        vec = TfidfVectorizer(stop_words="english", ngram_range=(1, 2))
-        m = vec.fit_transform([resume_text, jd_text])
-        return float(cosine_similarity(m[0], m[1])[0][0])
-    except ValueError:  # empty vocabulary, e.g. only stop words
-        return 0.0
+from .tfidf import score_tfidf  # noqa: F401  (re-exported)
 
 
 @dataclass

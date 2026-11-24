@@ -1,0 +1,10 @@
+# Full stack for the local Streamlit app (streamlit run app.py).
+-r requirements.txt
+streamlit>=1.50
+sentence-transformers>=2.6
+spacy>=3.7
+scikit-learn>=1.4
+scipy>=1.11
+pandas>=2.0
+numpy>=1.24
+ollama>=0.1.9

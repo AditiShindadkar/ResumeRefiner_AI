@@ -2,7 +2,7 @@ from pathlib import Path
 
 from resume_refiner.quality import analyze_quality, detect_sections, extract_bullets
 
-SAMPLE = (Path(__file__).parent.parent / "data" / "sample_resume.txt").read_text(encoding="utf-8")
+SAMPLE = (Path(__file__).parent.parent / "public" / "samples" / "sample_resume.txt").read_text(encoding="utf-8")
 
 
 def titles(report):
