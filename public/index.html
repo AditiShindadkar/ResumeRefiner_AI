@@ -5,7 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ResumeRefiner AI</title>
   <meta name="description" content="Match a resume against a job description: semantic coverage, skill gaps, resume quality checks and LLM rewrite suggestions.">
+  <meta name="theme-color" content="#f5f6f2" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#12171b" media="(prefers-color-scheme: dark)">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📄</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js" defer></script>
@@ -13,114 +18,155 @@
 </head>
 <body>
 <main class="wrap">
-  <header>
-    <h1>📄 ResumeRefiner AI</h1>
-    <p class="muted">Match a resume against a job description: semantic coverage, skill gaps,
-      resume quality checks and LLM rewrite suggestions.</p>
+  <header class="hero">
+    <div class="brand"><span class="brand-mark" aria-hidden="true">R</span>ResumeRefiner AI</div>
+    <h1>See how well your resume fits the job</h1>
+    <p class="lead">Semantic requirement coverage, skill gaps, resume quality checks and
+      AI rewrite suggestions, all in one calm read-out.</p>
   </header>
 
-  <div class="toolbar">
-    <button type="button" id="btn-sample">Try with sample data</button>
-    <button type="button" id="btn-clear">Clear</button>
-  </div>
-
-  <section class="inputs">
-    <div class="panel">
-      <h2>1. Resume</h2>
-      <label class="file">
-        <input type="file" id="file" accept=".pdf,.docx,.txt">
-        <span>Upload PDF, DOCX or TXT</span>
-      </label>
-      <p id="file-status" class="note" hidden></p>
-      <label for="resume" class="label">…or paste / edit the resume text</label>
-      <textarea id="resume" rows="16" spellcheck="false"></textarea>
-      <p id="resume-meta" class="caption"></p>
+  <section class="card input-card" aria-label="Inputs">
+    <div class="card-head">
+      <span class="eyebrow">Start here</span>
+      <div class="toolbar">
+        <button type="button" class="ghost" id="btn-sample">Try with sample data</button>
+        <button type="button" class="ghost" id="btn-clear">Clear</button>
+      </div>
     </div>
-    <div class="panel">
-      <h2>2. Job description</h2>
-      <label for="jd" class="label">Paste the full job description</label>
-      <textarea id="jd" rows="19" spellcheck="false"></textarea>
+
+    <div class="inputs">
+      <div class="panel">
+        <h2><span class="step">1</span>Resume</h2>
+        <label class="dropzone" id="dropzone">
+          <input type="file" id="file" accept=".pdf,.docx,.txt">
+          <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+          <span><strong>Drop a file</strong> or click to upload</span>
+          <small>PDF, DOCX or TXT · up to 3 MB</small>
+        </label>
+        <p id="file-status" class="note" hidden></p>
+        <label for="resume" class="label">…or paste / edit the resume text</label>
+        <textarea id="resume" rows="14" spellcheck="false" placeholder="Paste your resume here"></textarea>
+        <p id="resume-meta" class="caption"></p>
+      </div>
+      <div class="panel">
+        <h2><span class="step">2</span>Job description</h2>
+        <label for="jd" class="label">Paste the full job description</label>
+        <textarea id="jd" class="tall" rows="19" spellcheck="false" placeholder="Paste the job description here"></textarea>
+      </div>
+    </div>
+
+    <div class="card-foot">
+      <label class="switch">
+        <input type="checkbox" id="use-llm" role="switch">
+        <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+        <span class="switch-text">
+          <span id="llm-label">AI rewrite suggestions (Groq)</span>
+          <small id="llm-note" class="caption"></small>
+        </span>
+      </label>
+      <button type="button" id="btn-analyze" class="primary" disabled>
+        <span class="spinner" aria-hidden="true"></span><span class="btn-text">Analyze</span>
+      </button>
     </div>
   </section>
 
-  <label class="check">
-    <input type="checkbox" id="use-llm">
-    <span id="llm-label">Add rewrite suggestions from an LLM (Groq)</span>
-  </label>
-  <p id="llm-note" class="caption"></p>
-
-  <button type="button" id="btn-analyze" class="primary" disabled>Analyze</button>
   <p id="status" class="status" role="status" aria-live="polite"></p>
 
-  <section id="results" hidden>
+  <section id="results" class="results" hidden>
     <div class="metrics">
       <div class="metric" title="Mean, over JD requirements, of the best-matching resume chunk (cosine similarity). Use to compare candidates, not as a pass mark.">
-        <span class="metric-label">JD coverage</span><span class="metric-value" id="m-coverage">…</span>
+        <span class="metric-label">JD coverage</span>
+        <span class="metric-value" id="m-coverage">…</span>
+        <div class="meter"><span id="mb-coverage"></span></div>
       </div>
-      <div class="metric"><span class="metric-label">Skills matched</span><span class="metric-value" id="m-skills"></span></div>
-      <div class="metric"><span class="metric-label">Keyword overlap (TF-IDF)</span><span class="metric-value" id="m-tfidf"></span></div>
-      <div class="metric"><span class="metric-label">Resume quality</span><span class="metric-value" id="m-quality"></span></div>
+      <div class="metric">
+        <span class="metric-label">Skills matched</span>
+        <span class="metric-value" id="m-skills"></span>
+        <div class="meter"><span id="mb-skills"></span></div>
+      </div>
+      <div class="metric">
+        <span class="metric-label">Keyword overlap</span>
+        <span class="metric-value" id="m-tfidf"></span>
+        <div class="meter"><span id="mb-tfidf"></span></div>
+      </div>
+      <div class="metric">
+        <span class="metric-label">Resume quality</span>
+        <span class="metric-value" id="m-quality"></span>
+        <div class="meter"><span id="mb-quality"></span></div>
+      </div>
     </div>
 
-    <button type="button" id="btn-report">Download report (Markdown)</button>
+    <div class="card">
+      <div class="tabbar">
+        <nav class="tabs" role="tablist">
+          <button role="tab" data-tab="match" aria-selected="true">Match &amp; skills</button>
+          <button role="tab" data-tab="quality" aria-selected="false">Resume quality</button>
+          <button role="tab" data-tab="llm" aria-selected="false">AI suggestions</button>
+          <button role="tab" data-tab="debug" aria-selected="false">Scorer details</button>
+        </nav>
+        <button type="button" class="ghost small" id="btn-report">
+          <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12M7 11l5 5 5-5"/><path d="M5 20h14"/></svg>
+          Download report
+        </button>
+      </div>
 
-    <nav class="tabs" role="tablist">
-      <button role="tab" data-tab="match" aria-selected="true">Match &amp; skills</button>
-      <button role="tab" data-tab="quality">Resume quality</button>
-      <button role="tab" data-tab="llm">LLM suggestions</button>
-      <button role="tab" data-tab="debug">Scorer details</button>
-    </nav>
-
-    <div class="tab-panel" data-panel="match">
-      <div class="cols">
-        <div>
-          <h3>Skills</h3>
-          <div id="skills"></div>
+      <div class="tab-panel" data-panel="match" role="tabpanel">
+        <div class="cols">
+          <div>
+            <h3>Skills</h3>
+            <div id="skills"></div>
+          </div>
+          <div>
+            <h3>Weakest-covered requirements</h3>
+            <p class="caption">Where the resume says least about what the job asks for.</p>
+            <div id="coverage-table"></div>
+          </div>
         </div>
-        <div>
-          <h3>Weakest-covered requirements</h3>
-          <p class="caption">Where the resume says least about what the JD asks for.</p>
-          <div id="coverage-table"></div>
+      </div>
+
+      <div class="tab-panel" data-panel="quality" role="tabpanel" hidden>
+        <div class="stats">
+          <div><span class="stat-value" id="q-words"></span><span class="stat-label">Words</span></div>
+          <div><span class="stat-value" id="q-bullets"></span><span class="stat-label">Bullets</span></div>
+          <div><span class="stat-value" id="q-verbs"></span><span class="stat-label">Start with an action verb</span></div>
+          <div><span class="stat-value" id="q-nums"></span><span class="stat-label">Contain a number</span></div>
         </div>
+        <div class="checks">
+          <div><span class="checks-title">Sections</span><div id="q-sections" class="chips"></div></div>
+          <div><span class="checks-title">Contact</span><div id="q-contact" class="chips"></div></div>
+        </div>
+        <h3>Suggestions</h3>
+        <div id="findings"></div>
       </div>
-    </div>
 
-    <div class="tab-panel" data-panel="quality" hidden>
-      <div class="metrics small">
-        <div class="metric"><span class="metric-label">Words</span><span class="metric-value" id="q-words"></span></div>
-        <div class="metric"><span class="metric-label">Bullets</span><span class="metric-value" id="q-bullets"></span></div>
-        <div class="metric"><span class="metric-label">Start with action verb</span><span class="metric-value" id="q-verbs"></span></div>
-        <div class="metric"><span class="metric-label">Contain a number</span><span class="metric-value" id="q-nums"></span></div>
+      <div class="tab-panel" data-panel="llm" role="tabpanel" hidden>
+        <div id="llm-out"></div>
       </div>
-      <p id="q-sections"></p>
-      <p id="q-contact"></p>
-      <h3>Suggestions</h3>
-      <div id="findings"></div>
-    </div>
 
-    <div class="tab-panel" data-panel="llm" hidden>
-      <div id="llm-out"></div>
-    </div>
-
-    <div class="tab-panel" data-panel="debug" hidden>
-      <div id="debug"></div>
+      <div class="tab-panel" data-panel="debug" role="tabpanel" hidden>
+        <div id="debug"></div>
+      </div>
     </div>
   </section>
 
-  <details class="about">
+  <details class="card about">
     <summary>How it works</summary>
     <ol>
       <li><strong>Extract</strong> text from PDF (pdfplumber) or DOCX (mammoth) in a Python serverless function.</li>
       <li><strong>Match skills</strong> with boundary-aware regex and an alias table, so <code>JavaScript</code> doesn't count as <code>Java</code>.</li>
       <li><strong>Check quality</strong> with transparent rules: sections, contact info, action verbs, quantified bullets, weak phrases.</li>
-      <li><strong>Chunk and embed</strong> both documents <em>in your browser</em> with <code>all-MiniLM-L6-v2</code> (transformers.js). The JD coverage score is the mean, over JD requirements, of each requirement's best-matching resume chunk.</li>
+      <li><strong>Chunk and embed</strong> both documents <em>in your browser</em> with <code>all-MiniLM-L6-v2</code> (transformers.js). JD coverage is the mean, over requirements, of each requirement's best-matching resume chunk.</li>
       <li><strong>Optionally</strong> ask an LLM on Groq for concrete bullet rewrites.</li>
     </ol>
-    <p><strong>Privacy:</strong> resume text is sent to this site's serverless functions for the rule-based checks and is not stored.
-      It is sent to Groq only when you tick the LLM option. Embeddings are computed locally in your browser.</p>
+    <p><strong>Privacy:</strong> nothing is stored. Resume text goes to this site's serverless functions for the rule-based checks,
+      and to Groq only when AI suggestions are on. Embeddings are computed locally in your browser.</p>
     <p><strong>Limitations:</strong> the skill list is curated, so unlisted skills are invisible. Quality checks are heuristics.
       Cosine scores aren't calibrated probabilities, so use them to rank, not to threshold.</p>
   </details>
+
+  <footer class="foot">
+    <a href="https://github.com/AditiShindadkar/ResumeRefiner_AI" target="_blank" rel="noopener">Source on GitHub</a>
+  </footer>
 </main>
 </body>
 </html>

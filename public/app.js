@@ -194,12 +194,16 @@ els.analyze.addEventListener("click", async () => {
   const jd = els.jd.value.trim();
   const useLlm = els.useLlm.checked && !els.useLlm.disabled;
   els.analyze.disabled = true;
+  els.analyze.classList.add("loading");
+  els.analyze.querySelector(".btn-text").textContent = "Analyzing…";
   setStatus("Analyzing…");
   try {
     const base = await api("analyze", { resume, jd });
-    const result = { ...base, coverage: null, coverageError: null, llm: null, llmError: null };
+    const result = { ...base, coverage: null, coverageError: null, llm: null, llmError: null,
+                     llmPending: useLlm };
     lastResult = result;
     render(result);
+    els.results.scrollIntoView({ behavior: "smooth", block: "start" });
     setStatus(extractorPromise ? "Computing semantic coverage…" : "Loading embedding model…");
 
     const coverageTask = computeCoverage(resume, jd, base.chunking)
@@ -214,8 +218,6 @@ els.analyze.addEventListener("click", async () => {
           .finally(() => render(result))
       : Promise.resolve();
 
-    if (useLlm) result.llmPending = true;
-    render(result);
     await coverageTask;
     if (useLlm && result.llmPending && !result.llm && !result.llmError) {
       setStatus(`Waiting for LLM suggestions (${llmModel})…`);
@@ -228,6 +230,8 @@ els.analyze.addEventListener("click", async () => {
   } catch (e) {
     setStatus(e.message, true);
   } finally {
+    els.analyze.classList.remove("loading");
+    els.analyze.querySelector(".btn-text").textContent = "Analyze";
     refreshReady();
   }
 });
@@ -236,38 +240,62 @@ els.analyze.addEventListener("click", async () => {
 // Rendering
 // ---------------------------------------------------------------------------
 
+const SKELETON = `<div class="skeleton" aria-hidden="true"><span></span><span></span><span></span></div>`;
+const clamp01 = (x) => Math.max(0, Math.min(1, x ?? 0));
+// Drop leading bullet glyphs ("- ", "• ") for display only.
+const unbullet = (s) => s.replace(/^[\s\-•●▪◦‣*–>]+/, "");
+
+function setMeter(id, fraction) {
+  // Defer one frame so the width transition animates from the previous value.
+  requestAnimationFrame(() => { $(id).style.width = `${(clamp01(fraction) * 100).toFixed(1)}%`; });
+}
+
+// Only rewrite a region when its content actually changes, so open
+// <details>, scroll position and running animations aren't reset by re-renders.
+function setHTML(id, html) {
+  const el = $(id);
+  if (el.dataset.html !== html) { el.innerHTML = html; el.dataset.html = html; }
+}
+
 function render(r) {
   els.results.hidden = false;
   const q = r.quality;
   const { matched, missing, extra } = r.skills;
 
+  // Headline metrics
   $("m-coverage").textContent = r.coverage ? fmtPct(r.coverage.score) : (r.coverageError ? "n/a" : "…");
+  setMeter("mb-coverage", r.coverage?.score);
   const total = matched.length + missing.length;
   $("m-skills").textContent = total ? `${matched.length}/${total}` : "n/a";
+  setMeter("mb-skills", total ? matched.length / total : 0);
   $("m-tfidf").textContent = fmtPct(r.tfidf);
+  setMeter("mb-tfidf", r.tfidf);
   $("m-quality").textContent = `${q.score}/100`;
+  setMeter("mb-quality", q.score / 100);
 
-  // Skills
-  const callout = (cls, label, items) =>
-    items.length ? `<div class="callout ${cls}"><strong>${label}</strong> ${items.map(esc).join(", ")}</div>` : "";
-  $("skills").innerHTML =
-    callout("bad", "Required but missing:", missing) +
-    callout("ok", "Matched:", matched) +
-    callout("info", "In resume, not requested:", extra) +
-    (total ? "" : "<p>No known skills detected in the job description.</p>");
+  // Skills as chips
+  const group = (cls, label, items) => items.length
+    ? `<div class="skill-group"><div class="skill-group-title">${label} <span class="count">${items.length}</span></div>
+         <div class="chips">${items.map((s) => `<span class="chip ${cls}"><span class="dot"></span>${esc(s)}</span>`).join("")}</div></div>`
+    : "";
+  setHTML("skills",
+    group("bad", "Required but missing", missing) +
+    group("ok", "Matched", matched) +
+    group("info", "In resume, not requested", extra) +
+    (total ? "" : `<p class="caption">No known skills detected in the job description.</p>`));
 
-  // Coverage table
-  const ct = $("coverage-table");
+  // Weakest-covered requirements
   if (r.coverage?.detail.length) {
-    ct.innerHTML = `<table><thead><tr><th>JD requirement</th><th>Coverage</th><th>Best matching resume section</th></tr></thead><tbody>` +
-      r.coverage.detail.slice(0, 8).map((d) => {
-        const w = Math.max(0, Math.min(1, d.coverage)) * 100;
-        return `<tr><td>${esc(d.requirement)}</td><td><div class="bar"><div class="bar-track"><div class="bar-fill" style="width:${w.toFixed(0)}%"></div></div><span>${d.coverage.toFixed(2)}</span></div></td><td>${esc(d.bestMatch)}</td></tr>`;
-      }).join("") + "</tbody></table>";
+    setHTML("coverage-table", r.coverage.detail.slice(0, 8).map((d) => `
+      <div class="req">
+        <div class="req-top"><span class="req-text">${esc(unbullet(d.requirement))}</span><span class="req-score">${d.coverage.toFixed(2)}</span></div>
+        <div class="meter"><span style="width:${(clamp01(d.coverage) * 100).toFixed(0)}%"></span></div>
+        <div class="req-match">${esc(unbullet(d.bestMatch))}</div>
+      </div>`).join(""));
   } else if (r.coverageError) {
-    ct.innerHTML = `<div class="callout warn">${esc(r.coverageError)}</div>`;
+    setHTML("coverage-table", `<div class="callout warn">${esc(r.coverageError)}</div>`);
   } else {
-    ct.innerHTML = `<p class="caption">Computing…</p>`;
+    setHTML("coverage-table", SKELETON);
   }
 
   // Quality
@@ -275,40 +303,39 @@ function render(r) {
   $("q-bullets").textContent = q.n_bullets;
   $("q-verbs").textContent = fmtPct(q.pct_action_verb);
   $("q-nums").textContent = fmtPct(q.pct_quantified);
-  const marks = (obj) => Object.entries(obj).map(([k, ok]) => `${ok ? "✅" : "❌"} ${esc(k)}`).join(" · ");
-  $("q-sections").innerHTML = `<strong>Sections:</strong> ${marks(q.sections)}`;
-  $("q-contact").innerHTML = `<strong>Contact:</strong> ${marks(q.contact)}`;
-  const icon = { high: "🔴", medium: "🟠", low: "🟡" };
-  $("findings").innerHTML = q.findings.length
+  const checkChips = (obj) => Object.entries(obj).map(([k, ok]) =>
+    `<span class="chip ${ok ? "ok" : "bad"}">${ok ? "✓" : "✕"} ${esc(k)}</span>`).join("");
+  setHTML("q-sections", checkChips(q.sections));
+  setHTML("q-contact", checkChips(q.contact));
+  setHTML("findings", q.findings.length
     ? q.findings.map((f) => `<details class="finding"${f.severity === "high" ? " open" : ""}>
-        <summary>${icon[f.severity]} ${esc(f.title)}</summary>
-        <p>${esc(f.detail)}</p>${f.examples.map((ex) => `<blockquote>${esc(ex)}</blockquote>`).join("")}
+        <summary><span class="sev ${f.severity}"></span>${esc(f.title)}<span class="sev-tag">${f.severity}</span></summary>
+        <div class="finding-body"><p>${esc(f.detail)}</p>${f.examples.map((ex) => `<blockquote>${esc(ex)}</blockquote>`).join("")}</div>
       </details>`).join("")
-    : `<div class="callout ok">No issues found by the rule-based checks.</div>`;
+    : `<div class="callout ok">No issues found by the rule-based checks.</div>`);
 
   // LLM
-  const llm = $("llm-out");
   if (r.llm) {
     const html = window.marked && window.DOMPurify
       ? window.DOMPurify.sanitize(window.marked.parse(r.llm))
       : `<pre>${esc(r.llm)}</pre>`;
-    llm.innerHTML = `<div class="llm-md">${html}</div><p class="caption">Generated by ${esc(llmModel)} on Groq. Check every suggestion before using it.</p>`;
+    setHTML("llm-out", `<div class="llm-md">${html}</div><p class="caption">Generated by ${esc(llmModel)} on Groq. Check every suggestion before using it.</p>`);
   } else if (r.llmError) {
-    llm.innerHTML = `<div class="callout warn">${esc(r.llmError)}</div>`;
+    setHTML("llm-out", `<div class="callout warn">${esc(r.llmError)}</div>`);
   } else if (r.llmPending) {
-    llm.innerHTML = `<p class="caption">Waiting for the LLM…</p>`;
+    setHTML("llm-out", `<p class="caption">Writing suggestions… this usually takes 5–15 seconds.</p>${SKELETON}`);
   } else {
-    llm.innerHTML = `<div class="callout info">Tick the LLM option above and re-run to get bullet rewrites.</div>`;
+    setHTML("llm-out", `<div class="callout info">Turn on <strong>AI rewrite suggestions</strong> above and analyze again to get bullet rewrites.</div>`);
   }
 
   // Scorer details
   const c = r.coverage;
-  $("debug").innerHTML = (c ? `<p>Resume split into <strong>${c.nResumeChunks}</strong> chunks, JD into <strong>${c.nJdChunks}</strong>.</p>` : "") +
-    `<table><thead><tr><th>Scorer</th><th>Score</th></tr></thead><tbody>
+  setHTML("debug", (c ? `<p>Resume split into <strong>${c.nResumeChunks}</strong> chunks, JD into <strong>${c.nJdChunks}</strong>.</p>` : "") +
+    `<table class="simple"><thead><tr><th>Scorer</th><th>Score</th></tr></thead><tbody>
       <tr><td>Chunked embedding (all-MiniLM-L6-v2, in browser)</td><td>${c?.score == null ? "n/a" : c.score.toFixed(4)}</td></tr>
       <tr><td>TF-IDF baseline</td><td>${r.tfidf == null ? "n/a" : r.tfidf.toFixed(4)}</td></tr>
     </tbody></table>
-    <p class="caption">MiniLM cosine scores rarely approach 0, so read them relative to each other rather than as absolute percentages.</p>`;
+    <p class="caption">MiniLM cosine scores rarely approach 0, so read them relative to each other rather than as absolute percentages.</p>`);
 }
 
 $("btn-report").addEventListener("click", () => {
@@ -320,6 +347,11 @@ $("btn-report").addEventListener("click", () => {
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 });
+
+// Drag-and-drop highlight (the file input itself receives the drop)
+const dropzone = $("dropzone");
+["dragenter", "dragover"].forEach((ev) => dropzone.addEventListener(ev, () => dropzone.classList.add("dragover")));
+["dragleave", "drop"].forEach((ev) => dropzone.addEventListener(ev, () => dropzone.classList.remove("dragover")));
 
 // Tabs
 document.querySelectorAll('[role="tab"]').forEach((tab) => {
@@ -333,15 +365,15 @@ document.querySelectorAll('[role="tab"]').forEach((tab) => {
 fetch("/api/health").then((r) => r.json()).then((h) => {
   llmModel = h.llm_model || "";
   if (h.llm_configured) {
-    els.llmLabel.textContent = `Add rewrite suggestions from an LLM (Groq · ${llmModel})`;
-    els.llmNote.textContent = "Sends the resume and job description to Groq.";
+    els.llmLabel.textContent = "AI rewrite suggestions";
+    els.llmNote.textContent = `Powered by ${llmModel} on Groq · sends your text to Groq`;
   } else {
     els.useLlm.disabled = true;
-    els.llmNote.textContent = "Unavailable: the site owner hasn't set GROQ_API_KEY.";
+    els.llmNote.textContent = "Currently unavailable (no Groq API key configured)";
   }
 }).catch(() => {
   els.useLlm.disabled = true;
-  els.llmNote.textContent = "Unavailable: the API isn't reachable.";
+  els.llmNote.textContent = "Currently unavailable (API not reachable)";
 });
 
 refreshReady();
